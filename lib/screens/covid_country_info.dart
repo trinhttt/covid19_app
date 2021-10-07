@@ -1,6 +1,6 @@
+import 'package:covid19_app/api/country_api.dart';
+import 'package:covid19_app/models/country_info.dart';
 import 'package:flutter/material.dart';
-// import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 class CountryInfo extends StatefulWidget {
   @override
@@ -8,22 +8,42 @@ class CountryInfo extends StatefulWidget {
 }
 
 class _CountryInfoState extends State<CountryInfo> {
-  String? _chosenValue;
+  String _chosenValue = "Viet Nam";
+  List<String> _countries = [];
+  var _isLoadingDropdown = true;
+  var _isLoadingFigure = false;
+  DetailCountry? countryInfo;
 
   @override
   void initState() {
     super.initState();
+    getCountries();
   }
 
-  // getData() async {
-  //   String myUrl = "https://api.covid19api.com/countries";
-  //   var req = await http.get(myUrl);
-  //   var infos = json.decode(req.body);
-  //   print(infos);
-  // }
+  Future<void> getCountries() async {
+    final countryList = await CountryApi.getCountryList();
+    _countries = countryList.map((country) => country.country).toList();
+    print(_countries);
+
+    setState(() {
+      _chosenValue = _countries.first;
+      _isLoadingDropdown = !_isLoadingDropdown;
+    });
+  }
+
+  Future<void> getCountryInfoList() async {
+    if (_chosenValue != null) return;
+    countryInfo = await CountryApi.getYesterdayCountryInfo(_chosenValue);
+    print(countryInfo);
+    setState(() {
+      _isLoadingFigure = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    // getCountryInfoList();
+
     return SafeArea(
       child: Scaffold(
           body: Column(
@@ -39,44 +59,53 @@ class _CountryInfoState extends State<CountryInfo> {
   }
 
   Widget _buildDropdowView() {
-    return Container(
-      width: double.infinity,
-      height: 50,
-      decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: Colors.grey)),
-      margin: EdgeInsets.all(15),
-      padding: EdgeInsets.all(15),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-            value: _chosenValue,
-            underline: SizedBox(),
-            //elevation: 5,
-            style: TextStyle(color: Colors.black),
-            items: <String>['Viet nam', 'Japan']
-                .map<DropdownMenuItem<String>>((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(
-                  value,
-                  style: TextStyle(color: Colors.black),
-                ),
-              );
-            }).toList(),
-            hint: Text(
-              "Please choose a country",
-              style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500),
-            ),
-            onChanged: (value) {
-              setState(() {
-                _chosenValue = value;
-              });
-            }),
-      ),
-    );
+    if (_isLoadingDropdown) {
+      return Container(
+          margin: EdgeInsets.all(15), child: CircularProgressIndicator());
+    } else {
+      return Container(
+        width: double.infinity,
+        height: 50,
+        decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: Colors.grey)),
+        margin: EdgeInsets.all(15),
+        padding: EdgeInsets.all(15),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+              menuMaxHeight: 300,
+              value: "Viet Nam",
+              underline: SizedBox(),
+              focusColor: Colors.red,
+              style: TextStyle(color: Colors.black),
+              isExpanded: true,
+              items: _countries.map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(
+                    value,
+                    style: TextStyle(color: Colors.black),
+                  ),
+                );
+              }).toList(),
+              hint: Text(
+                "Please choose a country",
+                style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500),
+              ),
+              onChanged: (value) async {
+                await getCountryInfoList();
+
+                setState(() {
+                  _chosenValue = value ?? "Viet Nam";
+                  _isLoadingFigure = true;
+                });
+              }),
+        ),
+      );
+    }
   }
 
   Widget _buildTitleView(String title, String? subTitle) {
@@ -111,7 +140,7 @@ class _CountryInfoState extends State<CountryInfo> {
   }
 
   Widget _buildCovidFiguresView() {
-    return Container(
+    return  _isLoadingFigure ? CircularProgressIndicator() : Container(
         margin: EdgeInsets.all(15),
         padding: EdgeInsets.all(15),
         decoration: BoxDecoration(
@@ -128,12 +157,12 @@ class _CountryInfoState extends State<CountryInfo> {
         child: Row(
           children: [
             _buildFigureColumn(
-                'assets/Infected.png', 1000, 'Infected', Colors.orange),
+                'assets/Infected.png', countryInfo?.confirmed ?? 0, 'Infected', Colors.orange),
             Spacer(),
-            _buildFigureColumn('assets/Deaths.png', 1000, 'Deaths', Colors.red),
+            _buildFigureColumn('assets/Deaths.png', countryInfo?.deaths ?? 0, 'Deaths', Colors.red),
             Spacer(),
             _buildFigureColumn(
-                'assets/Recovered.png', 1000, 'Recovered', Colors.green),
+                'assets/Recovered.png', countryInfo?.recovered ?? 0, 'Recovered', Colors.green),
           ],
         ));
   }
