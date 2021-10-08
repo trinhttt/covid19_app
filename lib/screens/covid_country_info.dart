@@ -8,23 +8,22 @@ class CountryInfo extends StatefulWidget {
 }
 
 class _CountryInfoState extends State<CountryInfo> {
-  String _chosenValue = "Viet Nam";
+  String? _chosenValue;
   List<String> _countries = [];
   var _isLoadingDropdown = true;
   var _isLoadingFigure = false;
-  DetailCountry? countryInfo;
+  DetailCountry? _countryInfo;
 
   @override
   void initState() {
     super.initState();
-    getCountries();
+    getCountries().then((_) => getCountryInfoList());
   }
 
   Future<void> getCountries() async {
     final countryList = await CountryApi.getCountryList();
     _countries = countryList.map((country) => country.country).toList();
     print(_countries);
-
     setState(() {
       _chosenValue = _countries.first;
       _isLoadingDropdown = !_isLoadingDropdown;
@@ -32,9 +31,8 @@ class _CountryInfoState extends State<CountryInfo> {
   }
 
   Future<void> getCountryInfoList() async {
-    if (_chosenValue != null) return;
-    countryInfo = await CountryApi.getYesterdayCountryInfo(_chosenValue);
-    print(countryInfo);
+    if (_chosenValue == null) return;
+    _countryInfo = await CountryApi.getYesterdayCountryInfo(_chosenValue!);
     setState(() {
       _isLoadingFigure = false;
     });
@@ -42,8 +40,6 @@ class _CountryInfoState extends State<CountryInfo> {
 
   @override
   Widget build(BuildContext context) {
-    // getCountryInfoList();
-
     return SafeArea(
       child: Scaffold(
           body: Column(
@@ -59,53 +55,60 @@ class _CountryInfoState extends State<CountryInfo> {
   }
 
   Widget _buildDropdowView() {
-    if (_isLoadingDropdown) {
-      return Container(
-          margin: EdgeInsets.all(15), child: CircularProgressIndicator());
-    } else {
-      return Container(
-        width: double.infinity,
-        height: 50,
-        decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(color: Colors.grey)),
-        margin: EdgeInsets.all(15),
-        padding: EdgeInsets.all(15),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-              menuMaxHeight: 300,
-              value: "Viet Nam",
-              underline: SizedBox(),
-              focusColor: Colors.red,
-              style: TextStyle(color: Colors.black),
-              isExpanded: true,
-              items: _countries.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(
-                    value,
-                    style: TextStyle(color: Colors.black),
-                  ),
-                );
-              }).toList(),
-              hint: Text(
-                "Please choose a country",
-                style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500),
-              ),
-              onChanged: (value) async {
-                await getCountryInfoList();
+    return Stack(children: [
+      Column(
+        children: [
+          Container(
+            width: double.infinity,
+            height: 50,
+            decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(color: Colors.grey)),
+            padding: EdgeInsets.all(15),
+            margin: EdgeInsets.all(15),
 
-                setState(() {
-                  _chosenValue = value ?? "Viet Nam";
-                  _isLoadingFigure = true;
-                });
-              }),
-        ),
-      );
-    }
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                  menuMaxHeight: 400,
+                  value: _chosenValue,
+                  underline: SizedBox(),
+                  focusColor: Colors.red,
+                  style: TextStyle(color: Colors.black),
+                  isExpanded: true,
+                  items: _countries.map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(
+                        value,
+                        style: TextStyle(color: Colors.black),
+                      ),
+                    );
+                  }).toList(),
+                  hint: Text(
+                    "Please choose a country",
+                    style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500),
+                  ),
+                  onChanged: (value) async {
+                    setState(() {
+                      _chosenValue = value ?? "Viet Nam";
+                      getCountryInfoList();
+                      _isLoadingFigure = true;
+                    });
+                  }),
+            ),
+          ),
+        ]
+      ),
+      if (_isLoadingDropdown)
+        Positioned.fill(
+            child: Align(
+          alignment: Alignment.center,
+          child: CircularProgressIndicator(),
+        ))
+    ]);
   }
 
   Widget _buildTitleView(String title, String? subTitle) {
@@ -140,7 +143,7 @@ class _CountryInfoState extends State<CountryInfo> {
   }
 
   Widget _buildCovidFiguresView() {
-    return  _isLoadingFigure ? CircularProgressIndicator() : Container(
+    return Container(
         margin: EdgeInsets.all(15),
         padding: EdgeInsets.all(15),
         decoration: BoxDecoration(
@@ -154,34 +157,59 @@ class _CountryInfoState extends State<CountryInfo> {
                 offset: Offset(0, 3), // changes position of shadow
               ),
             ]),
-        child: Row(
-          children: [
-            _buildFigureColumn(
-                'assets/Infected.png', countryInfo?.confirmed ?? 0, 'Infected', Colors.orange),
-            Spacer(),
-            _buildFigureColumn('assets/Deaths.png', countryInfo?.deaths ?? 0, 'Deaths', Colors.red),
-            Spacer(),
-            _buildFigureColumn(
-                'assets/Recovered.png', countryInfo?.recovered ?? 0, 'Recovered', Colors.green),
-          ],
-        ));
+        child: Stack(children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildFigureColumn('assets/Infected.png',
+                    _countryInfo?.confirmed ?? 0, 'Infected', Colors.orange),
+              ),
+              SizedBox(
+                width: 10,
+              ),
+              Expanded(
+                  child: _buildFigureColumn('assets/Deaths.png',
+                      _countryInfo?.deaths ?? 0, 'Deaths', Colors.red)),
+              SizedBox(
+                width: 10,
+              ),
+              Expanded(
+                child: _buildFigureColumn('assets/Recovered.png',
+                    _countryInfo?.recovered ?? 0, 'Recovered', Colors.green),
+              ),
+            ],
+          ),
+          if (_isLoadingFigure)
+            Positioned.fill(
+                child: Align(
+                    alignment: Alignment.center,//default
+                    child: CircularProgressIndicator())),
+        ]));
   }
 
   Widget _buildFigureColumn(
       String imageName, int number, String text, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Image.asset(
-          imageName,
-          width: 23,
-          height: 23,
-        ),
-        SizedBox(height: 10),
-        Text(number.toString(), style: TextStyle(color: color, fontSize: 40)),
-        SizedBox(height: 10),
-        Text(text, style: TextStyle(color: Colors.grey, fontSize: 13)),
-      ],
+    return Container(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Image.asset(
+            imageName,
+            width: 23,
+            height: 23,
+          ),
+          SizedBox(height: 10),
+          FittedBox(
+              fit: BoxFit.contain,
+              child: Text(number.toString(),
+                  style: TextStyle(color: color, fontSize: 20))),
+          SizedBox(height: 10),
+          Text(text, style: TextStyle(color: Colors.grey, fontSize: 13)),
+        ],
+      ),
     );
   }
 }
+
+class AutoSizeText {}

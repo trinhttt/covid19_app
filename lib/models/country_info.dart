@@ -25,7 +25,7 @@ class DetailCountry extends Country {
 
   factory DetailCountry.fromJson(dynamic json) {
     return DetailCountry(
-        country: json['country'] as String,
+        country: json['Country'] as String,
         active: json['Active'] as int,
         recovered: json['Recovered'] as int,
         confirmed: json['Confirmed'] as int,
